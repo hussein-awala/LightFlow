@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # RabbitMQ as a Celery broker
+  rabbitmq:
+    image: rabbitmq:3.9
+    ports:
+      - "5672:5672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=rabbitmq_user
+      - RABBITMQ_DEFAULT_PASS=rabbitmq_password
+    healthcheck:
+      # TODO: fix healthcheck and replace service_started by service_healthy in downstream services
+      test: [ "CMD", "rabbitmq-diagnostic", "check_running" ]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+  # Redis as a Celery result backend
+  redis:
+    image: redis:7.2
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+  # Celery worker
+  celery-worker:
+    build:
+      context: .
+      dockerfile: ./celery.Dockerfile
+    image: celery_image
+    command: ["celery", "worker", "--concurrency", "32", "--loglevel=info"]
+    volumes:
+      - ../../lightflow:/modules/lightflow
+    env_file:
+      - celery.env
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  # Celery flower
+  celery-flower:
+    build:
+      context: .
+      dockerfile: ./celery.Dockerfile
+    image: celery_image
+    command: [ "celery", "flower", "--loglevel=info" ]
+    ports:
+      - "5555:5555"
+    env_file:
+      - celery.env
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      redis:
+        condition: service_healthy
