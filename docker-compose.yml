@@ -1,0 +1,29 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-15.4}
+    environment:
+      - POSTGRES_USER=lightflow
+      - POSTGRES_PASSWORD=lightflow
+      - POSTGRES_DB=lightflow
+      - POSTGRES_HOST_AUTH_METHOD=password
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready", "-U", "lightflow", "-d", "lightflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: "on-failure"
+  pgadmin:
+    image: dpage/pgadmin4:7.6
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root
+    ports:
+      - "5050:80"
+volumes:
+  postgres-db-volume:
